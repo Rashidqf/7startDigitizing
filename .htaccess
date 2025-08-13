@@ -1,33 +1,88 @@
-# Enable RewriteEngine
-RewriteEngine On  
+# Security Headers
+Header always set X-Frame-Options "SAMEORIGIN"
+Header always set X-Content-Type-Options "nosniff"
+Header always set X-XSS-Protection "1; mode=block"
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self';"
+Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
 
-# Remove .php extension from URLs
-# RewriteCond %{REQUEST_FILENAME} !-d
-# RewriteCond %{REQUEST_FILENAME}\.php -f
-# RewriteRule ^([^/]+)$ $1.php [L]
-
-# # Redirect to remove .php from browser bar (ensuring /mateen is not removed)
-# RewriteCond %{THE_REQUEST} ^[A-Z]{3,9}\ /mateen/([^\s]+)\.php [NC]
-# RewriteRule ^(.*)\.php$ /mateen/$1 [R=301,L]
-
-# Custom 404 Page
-ErrorDocument 404 /mateen/404.php
-
-# Enable GZIP Compression
+# GZIP Compression
 <IfModule mod_deflate.c>
-  AddOutputFilterByType DEFLATE text/plain text/html text/xml text/css application/javascript application/json
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE application/json
 </IfModule>
 
-# Cache-Control for Static Assets
-<IfModule mod_headers.c>
-  <FilesMatch "\.(jpg|jpeg|png|gif|js|css|pdf|woff|woff2|ttf)$">
-    Header set Cache-Control "max-age=31536000, public"
-  </FilesMatch>
-  <FilesMatch "\.html$">
-    Header set Cache-Control "max-age=86400, public"
-  </FilesMatch>
+# Browser Caching
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpg "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/pdf "access plus 1 month"
+    ExpiresByType text/javascript "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType application/x-javascript "access plus 1 month"
+    ExpiresByType application/x-shockwave-flash "access plus 1 month"
+    ExpiresByType image/x-icon "access plus 1 year"
+    ExpiresDefault "access plus 2 days"
 </IfModule>
 
+# Custom Error Pages
+ErrorDocument 404 /404.php
+ErrorDocument 500 /500.php
 
-# Disable Directory Listing
-Options -Indexes
+# Security - Block Access to Sensitive Files
+<FilesMatch "\.(env|log|sql|bak|backup|old|tmp|temp)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Block Access to Configuration Files
+<FilesMatch "^(config\.php|database\.sql|\.env)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Block Access to System Directories
+RedirectMatch 403 ^/config/?$
+RedirectMatch 403 ^/logs/?$
+RedirectMatch 403 ^/vendor/?$
+
+# Block PHP Execution in Uploads
+<Directory "uploads">
+    <FilesMatch "\.php$">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+</Directory>
+
+# Block Malicious User Agents
+RewriteEngine On
+RewriteCond %{HTTP_USER_AGENT} (bot|crawler|spider|scraper) [NC]
+RewriteRule .* - [F,L]
+
+# Block Hotlinking
+RewriteCond %{HTTP_REFERER} !^$
+RewriteCond %{HTTP_REFERER} !^http(s)?://(www\.)?localhost [NC]
+RewriteCond %{HTTP_REFERER} !^http(s)?://(www\.)?mateen\.com [NC]
+RewriteRule \.(jpg|jpeg|png|gif|webp)$ - [F,L]
+
+# Force HTTPS (uncomment when you have SSL)
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Rate Limiting (basic)
+<IfModule mod_ratelimit.c>
+    SetOutputFilter RATE_LIMIT
+    SetEnv rate-limit 400
+</IfModule>
