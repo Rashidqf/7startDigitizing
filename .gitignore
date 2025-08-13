@@ -1,0 +1,4 @@
+# Vendor folders - exclude from anywhere in the codebase
+vendor/
+**/vendor/
+**/vendor/**
